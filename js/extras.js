@@ -20,6 +20,57 @@ function topCat(list) {
 }
 
 
+/* ---------- 12) التواريخ: يوم الإضافة + ميعاد التسليم + كارت المواعيد ---------- */
+const fmtDay = ts => new Date(ts).toLocaleDateString("ar-EG", { weekday: "short", day: "numeric", month: "short" });
+
+// بتحسب حالة ميعاد المهمة: late (فات) / soon (أقل من يوم) / عادي
+function dueInfo(t) {
+    if (!t.due) return null;
+    const d = new Date(t.due), diff = d - Date.now();
+    const clock = d.toLocaleTimeString("ar-EG", { hour: "numeric", minute: "2-digit" });
+    if (t.done) return { text: fmtDay(d) + " " + clock, cls: "ok" };
+    const mins = Math.round(Math.abs(diff) / 60000);
+    const span = mins < 60 ? mins + " دقيقة" : mins < 1440 ? Math.floor(mins / 60) + " ساعة" : Math.floor(mins / 1440) + " يوم";
+    if (diff < 0) return { text: "فات ميعادها من " + span, cls: "late" };
+    if (diff < 86400000) return { text: "فاضل " + span + " (" + clock + ")", cls: "soon" };
+    return { text: fmtDay(d) + " " + clock, cls: "" };
+}
+
+// السطر الصغير تحت المهمة: اتضافت امتى + الميعاد
+function buildDates(t) {
+    const row = make("div", "t-dates");
+    const added = make("span", "");
+    added.appendChild(icon("fa-calendar-plus"));
+    added.appendChild(make("span", "", "اتضافت " + fmtDay(t.created || t.id)));
+    row.appendChild(added);
+    const di = dueInfo(t);
+    if (di) {
+        const due = make("span", "due " + di.cls);
+        due.appendChild(icon("fa-clock"));
+        due.appendChild(make("span", "", di.text));
+        row.appendChild(due);
+    }
+    return row;
+}
+
+// كارت "المواعيد القريبة" في العمود الجانبي: أقرب 5 مهام ليها ميعاد ولسه ما خلصتش
+function renderDueCard() {
+    const ul = document.getElementById("dueList");
+    ul.innerHTML = "";
+    const list = tasks.filter(t => !t.done && t.due).sort((a, b) => new Date(a.due) - new Date(b.due)).slice(0, 5);
+    if (!list.length) {
+        ul.appendChild(make("li", "due-empty", "مفيش مواعيد قريبة. حدّد ميعاد لأي مهمة وهتلاقيها هنا."));
+        return;
+    }
+    list.forEach(t => {
+        const di = dueInfo(t), li = make("li", "due-item");
+        li.appendChild(make("span", "due-t", t.text));
+        li.appendChild(make("small", di.cls, di.text));
+        ul.appendChild(li);
+    });
+}
+
+
 /* ---------- 8) صوت الشطب: رنة كوباية بتتعمل بالكود (مفيش ملف صوت) ---------- */
 let audioCtx = null;
 function playClink() {
@@ -218,6 +269,7 @@ function importData(file) {
                 id: Number(t.id) || Date.now() + Math.random(), text: String(t.text).slice(0, 100),
                 cat: getCat(t.cat).id, effort: t.effort === "deep" ? "deep" : "light",
                 done: !!t.done, doneAt: t.doneAt || null,
+                created: t.created || t.id, due: t.due || null, pinned: !!t.pinned,
                 subs: Array.isArray(t.subs) ? t.subs.map(s => ({ t: String(s.t), d: !!s.d })) : []
             }));
             if (d.stats) saveStats(d.stats);
@@ -232,15 +284,6 @@ function importData(file) {
 /* ---------- التشغيل ---------- */
 function initExtras() {
     const $b = id => document.getElementById(id);
-
-    // قائمة الإعدادات: بتتفتح بالترس وتتقفل بالضغط بره أو Esc أو بعد اختيار حاجة
-    const menu = $b("menu"), menuBtn = $b("menuBtn");
-    const setMenu = open => { menu.hidden = !open; menuBtn.setAttribute("aria-expanded", open); };
-    menuBtn.onclick = () => setMenu(menu.hidden);
-    menu.addEventListener("click", e => { if (e.target.closest(".menu-item")) setMenu(false); });
-    document.addEventListener("click", e => { if (!e.target.closest(".menu-wrap")) setMenu(false); });
-    document.addEventListener("keydown", e => { if (e.key === "Escape" && !menu.hidden) { setMenu(false); menuBtn.focus(); } });
-
     $b("billBtn").onclick = () => openPanel("bill");
     $b("weekBtn").onclick = () => openPanel("week");
     $b("reportClose").onclick = () => $b("report").classList.remove("on");
@@ -251,5 +294,13 @@ function initExtras() {
     const paint = () => snd.firstElementChild.className = "fa-solid " + (soundOn ? "fa-volume-high" : "fa-volume-xmark");
     snd.onclick = () => { soundOn = !soundOn; localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off"); paint(); playClink(); };
     paint();
+    // قايمة "المزيد": بتتقفل لما تدوس برا أو على أي اختيار
+    document.addEventListener("click", e => { if (!$b("more").contains(e.target)) $b("more").open = false; });
+    $b("more").addEventListener("click", e => { if (e.target.closest(".menu button")) $b("more").open = false; });
     initDnD();
+    // بنحدّث الحالات (فات ميعادها / فاضل ساعة) كل دقيقة من غير ما نقاطع الكتابة
+    setInterval(() => {
+        const busy = editingId !== null || addingSubFor !== null || document.activeElement.closest(".adder");
+        if (!busy) render();
+    }, 60000);
 }

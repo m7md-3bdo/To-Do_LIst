@@ -87,12 +87,12 @@ function addTask() {
     errBox.textContent = "";
 
     // المهمة الجديدة بتتحط في أول الـ Array
-    tasks.unshift({ id: Date.now(), text: text, cat: selectedCat, effort: selectedEffort, done: false, doneAt: null, subs: [] });
+    tasks.unshift({ id: Date.now(), text: text, cat: selectedCat, effort: selectedEffort, done: false, doneAt: null, subs: [],
+                  created: Date.now(), due: $("dueInput").value || null, pinned: false });
 
     input.value = "";
+    $("dueInput").value = "";
     input.focus();
-    selectedEffort = "light";
-    renderEffortPicker();
     saveTasks();
     render();
 }
@@ -134,6 +134,15 @@ function deleteTask(id, li) {
     }, 230);
 }
 
+// تثبيت المهمة أو إلغاء التثبيت
+function togglePin(id) {
+    const t = tasks.find(t => t.id === id);
+    if (!t) return;
+    t.pinned = !t.pinned;
+    saveTasks();
+    render();
+}
+
 function saveEdit(id, value) {
     const text = value.trim();
     const t = tasks.find(t => t.id === id);
@@ -152,6 +161,7 @@ $("taskList").addEventListener("click", e => {
 
     if (e.target.closest(".check") || e.target.closest(".t-body")) toggleTask(id);
     else if (e.target.closest(".edit")) { editingId = id; render(); }
+    else if (e.target.closest(".pin-btn")) togglePin(id);   // تثبيت المهمة
     else if (e.target.closest(".focus-btn")) startFocus(id);   // تركيز 25 دقيقة
     else if (e.target.closest(".del")) deleteTask(id, li);
 });
@@ -178,10 +188,13 @@ function renderTasks() {
         return;
     }
 
+    // المثبّت الأول (الترتيب ثابت بين اللي زي بعض)
+    visible.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+
     visible.forEach(t => {
         const cat = getCat(t.cat);
 
-        const li = make("li", "task" + (t.done ? " done" : ""));
+        const li = make("li", "task" + (t.done ? " done" : "") + (t.pinned ? " pinned" : ""));
         li.dataset.id = t.id;
         li.style.setProperty("--c", cat.color);   // لون التصنيف للكارت
 
@@ -220,12 +233,13 @@ function renderTasks() {
         eff.appendChild(make("span", "", t.effort === "deep" ? "تركيز" : "خفيفة"));
         tag.appendChild(eff);
         body.appendChild(tag);
+        body.appendChild(buildDates(t));          // اتضافت امتى + الميعاد (extras.js)
         li.appendChild(body);
 
         // زرار التعديل وزرار الحذف
         (t.done ? [] : [["focus-btn", "fa-stopwatch", "ركّز 25 دقيقة على المهمة"],
                          ["sub-add", "fa-list-ul", "أضف خطوة فرعية"]])
-            .concat([["edit", "fa-pen", "تعديل"], ["del", "fa-trash", "حذف"]]).forEach(([cls, ic, label]) => {
+            .concat([["pin-btn", "fa-thumbtack", t.pinned ? "إلغاء التثبيت" : "تثبيت"], ["edit", "fa-pen", "تعديل"], ["del", "fa-trash", "حذف"]]).forEach(([cls, ic, label]) => {
             const b = make("button", "icon-btn " + cls);
             b.type = "button";
             b.title = label;
@@ -252,32 +266,29 @@ function makeChip(cat, isOn, count) {
     b.type = "button";
     b.style.setProperty("--c", cat.color);
     b.appendChild(icon(cat.icon));
-    b.appendChild(make("span", "lbl", cat.label));
+    b.appendChild(make("span", "", cat.label));
+    b.title = cat.label;                       // تلميح لما الاسم يتخفي
     if (count) b.appendChild(make("span", "n", String(count)));
-    b.title = cat.label;
-    b.setAttribute("aria-label", cat.label + (count ? " (" + count + ")" : ""));
     return b;
 }
 
-// اختيار تصنيف المهمة الجديدة (قايمة منسدلة بتتملي مرة واحدة)
+// اختيار تصنيف المهمة الجديدة
 function renderPicker() {
-    const sel = $("catSelect");
-    if (!sel.options.length) {
-        CATEGORIES.forEach(cat => sel.add(new Option(cat.label, cat.id)));
-        sel.addEventListener("change", () => { selectedCat = sel.value; renderPicker(); });
-    }
-    sel.value = selectedCat;
-    sel.style.setProperty("--c", getCat(selectedCat).color);
+    const box = $("catPicker");
+    box.innerHTML = "";
+    CATEGORIES.forEach(cat => {
+        const b = makeChip(cat, cat.id === selectedCat);
+        b.setAttribute("role", "radio");
+        b.setAttribute("aria-checked", cat.id === selectedCat);
+        b.addEventListener("click", () => { selectedCat = cat.id; renderPicker(); input.focus(); });
+        box.appendChild(b);
+    });
+    // زرار التصنيف الحالي جنب الخانة (بيفتح الخيارات)
+    const now = getCat(selectedCat), cn = $("catNow");
+    cn.innerHTML = ""; cn.style.setProperty("--c", now.color); cn.title = now.label;
+    cn.appendChild(icon(now.icon));
+    cn.onclick = () => input.focus();
 }
-
-// خيارات الإضافة بتفتح لما تركّز على الخانة وتقفل لما تسيبها
-const adder = $("adder");
-const closeAdder = () => setTimeout(() => {
-    if (!adder.contains(document.activeElement) && !adder.matches(":hover")) adder.classList.remove("open");
-}, 0);
-adder.addEventListener("focusin", () => adder.classList.add("open"));
-adder.addEventListener("focusout", closeAdder);
-adder.addEventListener("mouseleave", closeAdder);
 
 // تابات الفلترة (الكل + كل تصنيف) والرقم = المهام اللي لسه ما خلصتش
 function renderTabs() {
@@ -289,11 +300,7 @@ function renderTabs() {
     const allCat = { id: ALL, label: "الكل", icon: "fa-layer-group", color: "#12303a" };
     [allCat, ...CATEGORIES].forEach(cat => {
         const b = makeChip(cat, cat.id === activeFilter, pendingOf(cat.id));
-        b.addEventListener("click", () => {
-            activeFilter = cat.id;
-            if (cat.id !== ALL) { selectedCat = cat.id; renderPicker(); }   // نفس تصنيف الفلتر
-            render();
-        });
+        b.addEventListener("click", () => { activeFilter = cat.id; render(); });
         box.appendChild(b);
     });
 }
@@ -318,6 +325,7 @@ function renderStats() {
     const full = total > 0 && left === 0;
 
     $("count").textContent = !total ? "الفاتورة فاضية" : full ? "خلصت كله" : leftText(left);
+    $("pct").textContent = total ? "خلصت " + done + " من " + total + " (" + pct + "%)" : "";
     $("barFill").style.width = pct + "%";
     $("bar").setAttribute("aria-valuenow", pct);
     $("slip").classList.toggle("full", full);
@@ -348,6 +356,7 @@ function render() {
     renderTabs();
     renderTasks();
     renderStats();
+    renderDueCard();                // كارت المواعيد القريبة (extras.js)
     renderExtras();                 // السلسلة والكوبايات وبانل التركيز (features.js)
 }
 

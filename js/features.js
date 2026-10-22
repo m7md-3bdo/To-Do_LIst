@@ -105,7 +105,8 @@ function askWaiter() {
     const want = tired ? "light" : "deep";
     const best = pending.filter(t => (t.effort || "light") === want);
     const pool = best.length ? best : pending;
-    const pick = pool[Math.floor(Math.random() * pool.length)];
+    const late = pending.filter(t => t.due && new Date(t.due) < new Date());   // اللي فات ميعادها الأول
+    const pick = late.length ? late[0] : pool[Math.floor(Math.random() * pool.length)];
 
     activeFilter = ALL;
     render();
@@ -115,7 +116,7 @@ function askWaiter() {
         li.scrollIntoView({ behavior: "smooth", block: "center" });
         setTimeout(() => li.classList.remove("picked"), 2600);
     }
-    showToast((tired ? "شكلك تعبان، ابدأ بالخفيفة: " : "ابدأ بالأهم: ") + pick.text, null, null, 5000);
+    showToast((late.length ? "دي فات ميعادها، ابدأ بيها: " : tired ? "شكلك تعبان، ابدأ بالخفيفة: " : "ابدأ بالأهم: ") + pick.text, null, null, 5000);
 }
 
 
@@ -123,25 +124,28 @@ function askWaiter() {
 function renderEffortPicker() {
     const box = document.getElementById("effortPicker");
     box.innerHTML = "";
-    const paint = b => {
-        b.classList.toggle("on", selectedEffort === "deep");
-        b.setAttribute("aria-pressed", selectedEffort === "deep");
-    };
-    const b = make("button", "chip effort-chip");
-    b.type = "button";
-    b.appendChild(icon("fa-bolt"));
-    b.appendChild(make("span", "", "محتاجة تركيز"));
-    b.addEventListener("click", () => { selectedEffort = selectedEffort === "deep" ? "light" : "deep"; paint(b); });
-    paint(b);
-    box.appendChild(b);
+    [["light", "خفيفة", "fa-feather"], ["deep", "محتاجة تركيز", "fa-bolt"]].forEach(([id, label, ic]) => {
+        const b = make("button", "chip" + (selectedEffort === id ? " on" : ""));
+        b.type = "button";
+        b.appendChild(icon(ic));
+        b.appendChild(make("span", "", label));
+        b.addEventListener("click", () => { selectedEffort = id; renderEffortPicker(); });
+        box.appendChild(b);
+    });
 }
 
 
 /* ---------- 5) الوضع الليلي ---------- */
-function applyTheme(night) {
+// الوضع التلقائي: على حسب إعداد الجهاز أو الوقت (ليلي من 6 مساءً لـ 6 صباحًا)
+function autoNight() {
+    const h = new Date().getHours();
+    return window.matchMedia("(prefers-color-scheme: dark)").matches || h >= 18 || h < 6;
+}
+
+function applyTheme(night, remember) {
     document.body.classList.toggle("night", night);
     document.getElementById("themeBtn").firstElementChild.className = "fa-solid " + (night ? "fa-sun" : "fa-moon");
-    try { localStorage.setItem(THEME_KEY, night ? "night" : "day"); } catch (e) {}
+    if (remember) { try { localStorage.setItem(THEME_KEY, night ? "night" : "day"); } catch (e) {} }   // بنحفظ بس لو اخترت بإيدك
 }
 
 
@@ -150,22 +154,17 @@ function renderExtras() {
     const s = loadStats();
     // لو فات يوم من غير شطب السلسلة بتتصفّر
     const alive = s.last === dayOffset(0) || s.last === dayOffset(-1);
-    const cups = s.cups[dayOffset(0)] || 0;
-    const streakOn = alive && s.streak > 0;
-    document.getElementById("streakBox").hidden = !streakOn;
-    document.getElementById("streakTxt").textContent = streakOn ? "بقالك " + dayWord(s.streak) : "";
-    document.getElementById("cupsBox").hidden = !cups;
-    document.getElementById("cupsTxt").textContent = cups === 1 ? "كوباية النهارده" : cups === 2 ? "كوبايتين النهارده" : cups + " كوبايات النهارده";
-    // الجرسون ملوش لازمة لو مفيش مهام مستنية
-    document.getElementById("waiterBtn").hidden = !tasks.some(t => !t.done);
+    document.getElementById("streakTxt").textContent = alive && s.streak ? "بقالك " + dayWord(s.streak) : "ابدأ سلسلتك";
+    document.getElementById("cupsTxt").textContent = (s.cups[dayOffset(0)] || 0) + " كوبايات";
     renderFocusPanel();
 }
 
 function initFeatures() {
     document.getElementById("waiterBtn").addEventListener("click", askWaiter);
     document.getElementById("themeBtn").addEventListener("click",
-        () => applyTheme(!document.body.classList.contains("night")));
+        () => applyTheme(!document.body.classList.contains("night"), true));
     document.getElementById("focusStop").addEventListener("click", () => stopFocus());
     renderEffortPicker();
-    applyTheme(localStorage.getItem(THEME_KEY) === "night");
+    const saved = localStorage.getItem(THEME_KEY);
+    applyTheme(saved ? saved === "night" : autoNight(), false);
 }

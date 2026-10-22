@@ -14,30 +14,57 @@
 
     <body class="ahwa">
 
-        <!-- ========== الغلاف العام (بوتستراب container) ========== -->
-        <div class="container py-4">
+        <!-- الشاشة كلها: شريط علوي + عمود المهام (الأساسي) + عمود جانبي -->
+        <div class="app" id="slip">
 
-            <!-- الفاتورة: الكارت الأساسي اللي فيه التطبيق كله -->
-            <main class="slip" id="slip">
-
-                <!-- قائمة الإعدادات: الأدوات اللي مش بتتستخدم كل يوم -->
-                <div class="menu-wrap">
-                    <button id="menuBtn" class="icon-btn" type="button" title="الإعدادات" aria-label="الإعدادات" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-gear"></i></button>
-                    <div class="menu" id="menu" hidden>
-                        <button id="billBtn" class="menu-item" type="button"><i class="fa-solid fa-receipt"></i> الحساب</button>
-                        <button id="weekBtn" class="menu-item" type="button"><i class="fa-solid fa-chart-column"></i> الأسبوع</button>
-                        <div class="menu-sep" role="separator"></div>
-                        <button id="exportBtn" class="menu-item" type="button"><i class="fa-solid fa-download"></i> حفظ نسخة</button>
-                        <button id="importBtn" class="menu-item" type="button"><i class="fa-solid fa-upload"></i> استيراد</button>
-                        <div class="menu-sep" role="separator"></div>
-                        <button id="soundBtn" class="menu-item" type="button"><i class="fa-solid fa-volume-high"></i> صوت الشطب</button>
-                        <button id="themeBtn" class="menu-item" type="button"><i class="fa-solid fa-moon"></i> الوضع الليلي</button>
-                        <input id="importFile" type="file" accept=".json,application/json" hidden>
-                    </div>
+            <!-- ===== الشريط العلوي: العنوان + التاريخ + الأدوات ===== -->
+            <header class="top-bar">
+                <div>
+                    <h1 class="title">على القهوة النهارده</h1>
+                    <p class="date-line" id="dateLine"></p>
                 </div>
+                <div class="toolbar d-flex gap-1">
+                    <button id="waiterBtn" class="icon-btn" type="button" title="اطلب من الجرسون" aria-label="اطلب من الجرسون"><i class="fa-solid fa-bell-concierge"></i></button>
+                    <button id="billBtn" class="icon-btn" type="button" title="الحساب" aria-label="الحساب"><i class="fa-solid fa-receipt"></i></button>
+                    <button id="weekBtn" class="icon-btn" type="button" title="إحصائيات الأسبوع" aria-label="إحصائيات الأسبوع"><i class="fa-solid fa-chart-column"></i></button>
+                    <details class="more" id="more">
+                            <summary class="icon-btn" title="المزيد" aria-label="المزيد"><i class="fa-solid fa-ellipsis"></i></summary>
+                            <div class="menu">
+                                <button id="exportBtn" type="button"><i class="fa-solid fa-download"></i> حفظ نسخة</button>
+                                <button id="importBtn" type="button"><i class="fa-solid fa-upload"></i> استيراد</button>
+                                <button id="soundBtn" type="button"><i class="fa-solid fa-volume-high"></i> الصوت</button>
+                                <button id="themeBtn" type="button"><i class="fa-solid fa-moon"></i> وضع ليلي</button>
+                                <input id="importFile" type="file" accept=".json,application/json" hidden>
+                            </div>
+                        </details>
+                </div>
+            </header>
 
-                <!-- ===== جزء 5: الهيدر + العداد + نسبة الإنجاز + كوباية الشاي ===== -->
-                <header class="top d-flex align-items-center gap-3">
+            <!-- ===== العمود الأساسي: الإضافة + الفلترة + قايمة المهام (جزء 1 و 2 و 3 و 4 و 6) ===== -->
+            <main class="col-main">
+                <section class="adder">
+                    <div class="add-row d-flex gap-2">
+                        <button id="catNow" class="cat-now" type="button"></button>
+                        <input id="taskInput" class="task-input" type="text" maxlength="100" autocomplete="off"
+                               placeholder="اكتب مهمة جديدة…" aria-label="مهمة جديدة">
+                        <button id="addBtn" class="add-btn" type="button"><i class="fa-solid fa-plus"></i> إضافة</button>
+                    </div>
+                    <div class="opts">
+                        <div class="cat-picker d-flex flex-wrap gap-2" id="catPicker" role="radiogroup" aria-label="تصنيف المهمة"></div>
+                        <label class="due-field" title="ميعاد التسليم"><i class="fa-regular fa-clock"></i><input type="datetime-local" id="dueInput" aria-label="ميعاد التسليم"></label>
+                        <div class="effort-picker d-flex gap-2" id="effortPicker" role="radiogroup" aria-label="مستوى المجهود"></div>
+                    </div>
+                    <p class="err" id="err" role="alert"></p>
+                </section>
+
+                <nav class="tabs d-flex gap-2" id="tabs" aria-label="فلترة المهام"></nav>
+                <ul class="task-list" id="taskList"></ul>
+                <p class="note" id="note"></p>
+            </main>
+
+            <!-- ===== العمود الجانبي: الكوباية + العداد + التركيز + التقارير (جزء 5) ===== -->
+            <aside class="col-side">
+                <section class="card cup-card">
                     <svg class="glass" viewBox="0 0 80 100" role="img" aria-label="كوباية شاي بتتملي مع إنجازك">
                         <defs>
                             <clipPath id="cupClip"><path d="M12 24 H68 L62 84 Q61 92 53 92 H27 Q19 92 18 84 Z"/></clipPath>
@@ -53,25 +80,20 @@
                         <path d="M12 24 H68 L62 84 Q61 92 53 92 H27 Q19 92 18 84 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
                         <path d="M8 96 H72" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
                     </svg>
-
                     <div class="stats">
-                        <p class="date-line" id="dateLine"></p>
-                        <h1 class="title">على القهوة النهارده</h1>
                         <p class="count" id="count"></p>
-                        <div class="bar" id="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                            <i id="barFill"></i>
-                        </div>
-                        <div class="meta">
-                            <span class="meta-item" id="streakBox" hidden><i class="fa-solid fa-fire"></i> <span id="streakTxt"></span></span>
-                            <span class="meta-item" id="cupsBox" hidden><i class="fa-solid fa-mug-hot"></i> <span id="cupsTxt"></span></span>
-                            <button id="waiterBtn" class="link-btn" type="button" title="الجرسون يرشّحلك مهمة تبدأ بيها" hidden><i class="fa-solid fa-bell-concierge"></i> مش عارف تبدأ بإيه؟</button>
-                        </div>
+                        <div class="bar" id="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="barFill"></i></div>
+                        <p class="pct" id="pct"></p>
+                        <p class="mini-stats">
+                            <span><i class="fa-solid fa-fire"></i> <span id="streakTxt"></span></span>
+                            <span><i class="fa-solid fa-mug-hot"></i> <span id="cupsTxt"></span></span>
+                        </p>
                     </div>
-                </header>
+                </section>
 
-                <section class="report" id="report">
-                    <button id="reportClose" class="icon-btn" type="button" aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button>
-                    <div id="reportBody"></div>
+                <section class="card due-card">
+                    <h2 class="side-h"><i class="fa-regular fa-clock"></i> المواعيد القريبة</h2>
+                    <ul class="due-list" id="dueList"></ul>
                 </section>
 
                 <!-- بانل التركيز: بتظهر لما تدوس على ساعة التوقيت في أي مهمة -->
@@ -85,40 +107,15 @@
                     <div class="bar"><i id="focusFill"></i></div>
                 </section>
 
-                <!-- ===== جزء 1: إضافة مهمة (التصنيف + الـ Input + زرار Add) ===== -->
-                <section class="adder" id="adder">
-                    <div class="add-row d-flex gap-2">
-                        <input id="taskInput" class="task-input" type="text" maxlength="100" autocomplete="off"
-                               placeholder="اكتب مهمة جديدة…" aria-label="مهمة جديدة">
-                        <button id="addBtn" class="add-btn" type="button">
-                            <i class="fa-solid fa-plus"></i> إضافة
-                        </button>
-                    </div>
-                    <!-- التصنيف والمجهود: بيظهروا لما تضغط على الخانة -->
-                    <div class="add-opts">
-                        <div class="add-opts-in">
-                            <div class="add-opts-row">
-                                <select id="catSelect" class="cat-select" aria-label="تصنيف المهمة"></select>
-                                <span id="effortPicker"></span>
-                            </div>
-                        </div>
-                    </div>
-                    <p class="err" id="err" role="alert"></p>
+                <section class="report" id="report">
+                    <button id="reportClose" class="icon-btn" type="button" aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button>
+                    <div id="reportBody"></div>
                 </section>
-
-                <!-- ===== جزء 6: تابات الفلترة حسب التصنيف ===== -->
-                <nav class="tabs d-flex gap-2" id="tabs" aria-label="فلترة المهام"></nav>
-
-                <!-- ===== جزء 2/3/4: قائمة المهام (عرض + شطب + تعديل + حذف) ===== -->
-                <ul class="task-list" id="taskList"></ul>
-
-                <p class="note" id="note"></p>
-
-            </main>
-
-            <!-- رسالة التراجع وكلام الجرسون -->
-            <div class="toast-box" id="toast" role="status"></div>
+            </aside>
         </div>
+
+        <!-- رسالة التراجع وكلام الجرسون -->
+        <div class="toast-box" id="toast" role="status"></div>
 
         <script src="js/bootstrap.bundle.min.js"></script>
         <script src="js/features.js"></script>
